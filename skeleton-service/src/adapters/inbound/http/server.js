@@ -4,11 +4,12 @@ import helmet from "@fastify/helmet";
 import { AppError } from "../../../shared/errors.js";
 import { loggerConfig } from "../../../shared/logger.js";
 import healthRoutes from "./routes/health.js";
+import itemRoutes from "./routes/item.routes.js";
 
 /**
  * Build a Fastify instance with cors, helmet, error handler, and health route.
  *
- * @param {{ dependencyCheckers?: Record<string, () => Promise<string>> }} options
+ * @param {{ dependencyCheckers?: Record<string, () => Promise<string>>, itemUseCase?: import('../../../domain/ports/inbound/item-use-case.port.js').IItemUseCase }} options
  */
 export async function buildServer(options = {}) {
   const fastify = Fastify({ logger: loggerConfig });
@@ -32,6 +33,12 @@ export async function buildServer(options = {}) {
   await fastify.register(healthRoutes, {
     dependencyCheckers: options.dependencyCheckers || {},
   });
+
+  if (options.itemUseCase) {
+    await fastify.register(itemRoutes, {
+      itemUseCase: options.itemUseCase,
+    });
+  }
 
   return fastify;
 }
