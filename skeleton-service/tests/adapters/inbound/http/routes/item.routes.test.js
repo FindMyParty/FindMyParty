@@ -1,8 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildServer } from "../../../../../src/adapters/inbound/http/server.js";
+import { createHmac } from "node:crypto";
 import { NotFoundError } from "../../../../../src/shared/errors.js";
 
+vi.mock("../../../../../src/config/env.js", () => ({
+  env: { JWT_SECRET: "test-secret-key" },
+}));
+
+const { buildServer } = await import(
+  "../../../../../src/adapters/inbound/http/server.js"
+);
+
+const SECRET = "test-secret-key";
 const VALID_UUID = "00000000-0000-4000-a000-000000000001";
+
+function createToken(payload = { sub: "user-123", role: "admin" }) {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", SECRET)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
+
+const AUTH_HEADER = `Bearer ${createToken()}`;
 
 const fakeItem = {
   id: VALID_UUID,
@@ -34,6 +54,31 @@ describe("Item routes", () => {
     server = await buildServer({ itemService });
   });
 
+  // --- Auth ---
+
+  describe("Authentication", () => {
+    it("returns 401 when Authorization header is missing", async () => {
+      const response = await server.inject({
+        method: "GET",
+        url: "/items",
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe("UNAUTHORIZED");
+    });
+
+    it("returns 401 when token is invalid", async () => {
+      const response = await server.inject({
+        method: "GET",
+        url: "/items",
+        headers: { authorization: "Bearer invalid-token" },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error.code).toBe("UNAUTHORIZED");
+    });
+  });
+
   // --- POST /items ---
 
   describe("POST /items", () => {
@@ -43,6 +88,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/items",
+        headers: { authorization: AUTH_HEADER },
         payload: { name: "Test Item", description: "A test item" },
       });
 
@@ -58,6 +104,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/items",
+        headers: { authorization: AUTH_HEADER },
         payload: { description: "no name" },
       });
 
@@ -69,6 +116,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/items",
+        headers: { authorization: AUTH_HEADER },
         payload: { name: "" },
       });
 
@@ -86,6 +134,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: "/items",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(200);
@@ -99,6 +148,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: "/items?status=active",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(200);
@@ -109,6 +159,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: "/items?status=invalid",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(400);
@@ -125,6 +176,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(200);
@@ -136,6 +188,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: "/items/not-a-uuid",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(400);
@@ -148,6 +201,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(404);
@@ -165,6 +219,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PUT",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
         payload: { name: "Updated" },
       });
 
@@ -179,6 +234,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PUT",
         url: "/items/bad-id",
+        headers: { authorization: AUTH_HEADER },
         payload: { name: "Updated" },
       });
 
@@ -192,6 +248,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PUT",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
         payload: { name: "Updated" },
       });
 
@@ -209,6 +266,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "DELETE",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(204);
@@ -219,6 +277,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "DELETE",
         url: "/items/bad-id",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(400);
@@ -231,6 +290,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "DELETE",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(404);
@@ -247,6 +307,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PATCH",
         url: `/items/${VALID_UUID}/activate`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(200);
@@ -258,6 +319,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PATCH",
         url: "/items/bad-id/activate",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(400);
@@ -274,6 +336,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PATCH",
         url: `/items/${VALID_UUID}/deactivate`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(200);
@@ -285,6 +348,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "PATCH",
         url: "/items/bad-id/deactivate",
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(400);
@@ -301,6 +365,7 @@ describe("Item routes", () => {
       const response = await server.inject({
         method: "GET",
         url: `/items/${VALID_UUID}`,
+        headers: { authorization: AUTH_HEADER },
       });
 
       expect(response.statusCode).toBe(500);

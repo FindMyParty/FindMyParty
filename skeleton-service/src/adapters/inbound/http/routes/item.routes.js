@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ValidationError } from "../../../../shared/errors.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 const createItemBody = z.object({
   name: z.string().min(1).max(255),
@@ -32,6 +33,8 @@ const listItemsQuery = z.object({
  */
 export default async function itemRoutes(fastify, options) {
   const { itemService } = options;
+
+  fastify.addHook("preHandler", authMiddleware);
 
   fastify.post("/items", async (request, reply) => {
     const result = createItemBody.safeParse(request.body);

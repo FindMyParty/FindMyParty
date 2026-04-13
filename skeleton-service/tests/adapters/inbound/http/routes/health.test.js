@@ -1,5 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { buildServer } from "../../../../../src/adapters/inbound/http/server.js";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("../../../../../src/config/env.js", () => ({
+  env: { JWT_SECRET: "test-secret-key" },
+}));
+
+const { buildServer } = await import(
+  "../../../../../src/adapters/inbound/http/server.js"
+);
 
 describe("GET /health", () => {
   it("returns ok when no dependency checkers are registered", async () => {
