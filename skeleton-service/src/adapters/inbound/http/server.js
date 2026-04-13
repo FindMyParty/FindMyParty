@@ -9,7 +9,7 @@ import itemRoutes from "./routes/item.routes.js";
 /**
  * Build a Fastify instance with cors, helmet, error handler, and health route.
  *
- * @param {{ dependencyCheckers?: Record<string, () => Promise<string>>, itemUseCase?: import('../../../domain/ports/inbound/item-use-case.port.js').IItemUseCase }} options
+ * @param {{ dependencyCheckers?: Record<string, () => Promise<string>>, itemService?: import('../../../application/services/item.service.js').ItemService }} options
  */
 export async function buildServer(options = {}) {
   const fastify = Fastify({ logger: loggerConfig });
@@ -34,9 +34,9 @@ export async function buildServer(options = {}) {
     dependencyCheckers: options.dependencyCheckers || {},
   });
 
-  if (options.itemUseCase) {
+  if (options.itemService) {
     await fastify.register(itemRoutes, {
-      itemUseCase: options.itemUseCase,
+      itemService: options.itemService,
     });
   }
 

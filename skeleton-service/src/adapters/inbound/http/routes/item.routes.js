@@ -24,19 +24,22 @@ const listItemsQuery = z.object({
 /**
  * Item routes — CRUD endpoints for items.
  *
+ * Routes delegate to ItemService (application layer) which handles
+ * domain orchestration and DTO mapping.
+ *
  * @param {import('fastify').FastifyInstance} fastify
- * @param {{ itemUseCase: import('../../../../domain/ports/inbound/item-use-case.port.js').IItemUseCase }} options
+ * @param {{ itemService: import('../../../../application/services/item.service.js').ItemService }} options
  */
 export default async function itemRoutes(fastify, options) {
-  const { itemUseCase } = options;
+  const { itemService } = options;
 
   fastify.post("/items", async (request, reply) => {
     const result = createItemBody.safeParse(request.body);
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    const item = await itemUseCase.createItem(result.data);
-    return reply.status(201).send({ data: item.toJSON() });
+    const data = await itemService.createItem(result.data);
+    return reply.status(201).send({ data });
   });
 
   fastify.get("/items", async (request, reply) => {
@@ -44,8 +47,8 @@ export default async function itemRoutes(fastify, options) {
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    const items = await itemUseCase.listItems(result.data);
-    return reply.status(200).send({ data: items.map((item) => item.toJSON()) });
+    const data = await itemService.listItems(result.data);
+    return reply.status(200).send({ data });
   });
 
   fastify.get("/items/:id", async (request, reply) => {
@@ -53,8 +56,8 @@ export default async function itemRoutes(fastify, options) {
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    const item = await itemUseCase.getItemById(result.data.id);
-    return reply.status(200).send({ data: item.toJSON() });
+    const data = await itemService.getItemById(result.data.id);
+    return reply.status(200).send({ data });
   });
 
   fastify.put("/items/:id", async (request, reply) => {
@@ -66,8 +69,8 @@ export default async function itemRoutes(fastify, options) {
     if (!bodyResult.success) {
       throw new ValidationError(bodyResult.error.issues[0].message);
     }
-    const item = await itemUseCase.updateItem(paramsResult.data.id, bodyResult.data);
-    return reply.status(200).send({ data: item.toJSON() });
+    const data = await itemService.updateItem(paramsResult.data.id, bodyResult.data);
+    return reply.status(200).send({ data });
   });
 
   fastify.delete("/items/:id", async (request, reply) => {
@@ -75,7 +78,7 @@ export default async function itemRoutes(fastify, options) {
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    await itemUseCase.deleteItem(result.data.id);
+    await itemService.deleteItem(result.data.id);
     return reply.status(204).send();
   });
 
@@ -84,8 +87,8 @@ export default async function itemRoutes(fastify, options) {
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    const item = await itemUseCase.activateItem(result.data.id);
-    return reply.status(200).send({ data: item.toJSON() });
+    const data = await itemService.activateItem(result.data.id);
+    return reply.status(200).send({ data });
   });
 
   fastify.patch("/items/:id/deactivate", async (request, reply) => {
@@ -93,7 +96,7 @@ export default async function itemRoutes(fastify, options) {
     if (!result.success) {
       throw new ValidationError(result.error.issues[0].message);
     }
-    const item = await itemUseCase.deactivateItem(result.data.id);
-    return reply.status(200).send({ data: item.toJSON() });
+    const data = await itemService.deactivateItem(result.data.id);
+    return reply.status(200).send({ data });
   });
 }
