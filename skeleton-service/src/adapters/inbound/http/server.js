@@ -5,6 +5,7 @@ import { AppError } from "../../../shared/errors.js";
 import { loggerConfig } from "../../../shared/logger.js";
 import healthRoutes from "./routes/health.js";
 import itemRoutes from "./routes/item.routes.js";
+import metricsRoutes from "./routes/metrics.js";
 
 /**
  * Build a Fastify instance with cors, helmet, error handler, and health route.
@@ -33,6 +34,8 @@ export async function buildServer(options = {}) {
   await fastify.register(healthRoutes, {
     dependencyCheckers: options.dependencyCheckers || {},
   });
+
+  await fastify.register(metricsRoutes);
 
   if (options.itemService) {
     await fastify.register(itemRoutes, {
