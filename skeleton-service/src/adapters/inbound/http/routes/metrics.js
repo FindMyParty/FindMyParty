@@ -1,4 +1,4 @@
-import { getPrometheusExporter } from "../../../../observability/telemetry.js";
+import { getPrometheusExporter } from "../../../../config/observability/telemetry.js";
 
 /**
  * Metrics route — GET /metrics (no auth required).
@@ -7,7 +7,17 @@ import { getPrometheusExporter } from "../../../../observability/telemetry.js";
  * @param {import('fastify').FastifyInstance} fastify
  */
 export default async function metricsRoutes(fastify) {
-  fastify.get("/metrics", async (request, reply) => {
+  fastify.get("/metrics", {
+    schema: {
+      tags: ["Observability"],
+      summary: "Prometheus metrics",
+      description: "Retorna métricas no formato Prometheus para scraping.",
+      response: {
+        200: { type: "string", description: "Métricas em formato text/plain" },
+        503: { $ref: "Error#" },
+      },
+    },
+  }, async (request, reply) => {
     const exporter = getPrometheusExporter();
 
     if (!exporter) {

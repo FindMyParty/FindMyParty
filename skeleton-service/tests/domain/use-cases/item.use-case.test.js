@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ItemUseCase } from "../../../src/domain/use-cases/item.use-case.js";
 import { Item, ItemStatus } from "../../../src/domain/entities/item.js";
-import { NotFoundError } from "../../../src/shared/errors.js";
+import { NotFoundError } from "../../../src/utils/errors.js";
 
 function createMockRepository() {
   return {

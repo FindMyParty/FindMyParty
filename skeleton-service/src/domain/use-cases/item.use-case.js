@@ -1,5 +1,5 @@
 import { Item } from "../entities/item.js";
-import { NotFoundError } from "../../shared/errors.js";
+import { NotFoundError } from "../../utils/errors.js";
 
 export class ItemUseCase {
   constructor({ itemRepository, eventPublisher }) {

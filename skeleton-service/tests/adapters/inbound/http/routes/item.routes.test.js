@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createHmac } from "node:crypto";
-import { NotFoundError } from "../../../../../src/shared/errors.js";
+import { NotFoundError } from "../../../../../src/utils/errors.js";
 
 vi.mock("../../../../../src/config/env.js", () => ({
   env: { JWT_SECRET: "test-secret-key" },

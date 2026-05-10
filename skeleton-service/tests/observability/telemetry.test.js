@@ -4,7 +4,7 @@ import {
   shutdownTelemetry,
   getPrometheusExporter,
   isTelemetryInitialized,
-} from "../../src/observability/telemetry.js";
+} from "../../src/config/observability/telemetry.js";
 
 describe("Telemetry", () => {
   afterAll(async () => {

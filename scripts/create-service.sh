@@ -132,6 +132,8 @@ find "$TARGET_DIR" -type f \( -name "*.js" -o -name "*.json" -o -name ".env.exam
     -e "s/item-use-case\.port/${ENTITY_NAME}-use-case.port/g" \
     -e "s/item-repository\.port/${ENTITY_NAME}-repository.port/g" \
     -e "s/in-memory-item/in-memory-${ENTITY_NAME}/g" \
+    -e "s/postgres-item/postgres-${ENTITY_NAME}/g" \
+    -e "s/PostgresItemRepository/Postgres${ENTITY_UPPER}Repository/g" \
     -e "s/item\.use-case/${ENTITY_NAME}.use-case/g" \
     -e "s/item\.service/${ENTITY_NAME}.service/g" \
     -e "s/item\.js/${ENTITY_NAME}.js/g" \

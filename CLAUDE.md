@@ -8,13 +8,14 @@ Read this entire file before writing any code.
 
 | Layer | Technology |
 |---|---|
-| Backend | Node.js + TypeScript |
+| Backend | Node.js |
 | HTTP | Fastify |
 | Relational DB | PostgreSQL (kysely) |
 | Messaging | RabbitMQ (amqplib) |
 | Validation | zod |
 | Logger | pino |
 | Tests | vitest |
+| Observability | OpenTelemetry · Prometheus · Loki · Tempo · Grafana · Sentry |
 
 ---
 
@@ -81,6 +82,56 @@ Use cases only depend on port interfaces — never on concrete implementations.
 
 ---
 
+## Communication protocols
+
+### Decision rule
+
+> "Who is waiting for this response right now?"
+> - User is waiting on screen → **HTTP**
+> - Nobody is waiting → **RabbitMQ**
+
+### HTTP — synchronous calls
+
+Used between the API Gateway and services for all client-facing requests.
+Also used for inter-service calls when an immediate response is required (e.g. auth-service validating a token).
+
+- All external traffic goes through NGINX (TLS termination at the edge)
+- Internal traffic between gateway and services uses plain HTTP inside the private network
+- Services never call each other directly via HTTP — only the gateway calls services
+
+### RabbitMQ — asynchronous events
+
+Used for all side effects that do not require an immediate response.
+A service publishes an event and moves on — it never waits for downstream reactions.
+
+Routing key pattern: `[service].[entity].[action]`
+
+Examples:
+- `profile.user.created`
+- `match.match.created`
+- `party.member.joined`
+- `chat.message.sent`
+
+Always publish through `IEventPublisher` — never import the RabbitMQ client directly in a use case.
+Failed messages go to dead letter queue automatically.
+
+### WebSocket — real-time
+
+Used for chat and live notifications.
+Managed inside the Chat Service — the gateway proxies the WebSocket connection through NGINX.
+
+### TLS strategy
+
+| Layer | Protocol |
+|---|---|
+| Client → NGINX | HTTPS (TLS termination) |
+| NGINX → services | HTTP (private network) |
+| Service → service (events) | RabbitMQ over private network |
+
+mTLS between internal services is deferred — not part of the current scope.
+
+---
+
 ## Patterns
 
 ### Repository pattern
@@ -89,7 +140,7 @@ Repositories implement an outbound port interface defined in `domain/ports/outbo
 No query outside a repository. No business logic inside a repository.
 
 ### Event-driven architecture
-Services communicate exclusively through RabbitMQ events — never via direct HTTP calls between services.
+Services communicate exclusively through RabbitMQ events for async operations.
 Each service owns its events and is the only publisher of them.
 Other services react by subscribing — they never call the origin service directly.
 
@@ -105,20 +156,7 @@ Other services react by subscribing — they never call the origin service direc
 
 ## Language
 
-All code in English: variable names, function names, class names, comments, commit messages, branch names, error codes, event routing keys, database column names.
-
----
-
-## Messaging conventions
-
-Routing key pattern: `[service].[entity].[action]`
-
-Examples:
-- `profile.user.created`
-- `match.match.created`
-
-Always publish through `IEventPublisher` — never import the RabbitMQ client directly in a use case.
-Failed messages go to dead letter queue automatically.
+All code in English: variable names, function names, class names, comments, commit messages, branch names, error codes, routing keys, column names.
 
 ---
 
@@ -151,7 +189,9 @@ DATABASE_URL
 RABBITMQ_URL
 JWT_SECRET
 NODE_ENV
-LOG_LEVEL        # default: info
+LOG_LEVEL                      # default: info
+OTEL_EXPORTER_OTLP_ENDPOINT    # OTel Collector URL
+SENTRY_DSN                     # optional
 ```
 
 Validated with zod at boot. Missing required var = process exits with a clear message.
@@ -177,12 +217,56 @@ Every service exposes `GET /health` — no auth required.
 
 ## Boot sequence (`main.ts`)
 
-1. Validate env vars
-2. Connect database
-3. Connect RabbitMQ
-4. Register queue subscribers
-5. Start HTTP server
-6. Handle `SIGTERM` and `SIGINT` — graceful shutdown
+1. Initialize OpenTelemetry SDK (must be first — patches modules at startup)
+2. Validate env vars
+3. Connect database
+4. Connect RabbitMQ
+5. Register queue subscribers
+6. Start HTTP server
+7. Handle `SIGTERM` and `SIGINT` — graceful shutdown
+
+---
+
+## Observability
+
+Every service is instrumented with **OpenTelemetry** from day one.
+The OTel SDK is the only instrumentation layer — it exports to all backends without code changes.
+
+| Concern | Tool |
+|---|---|
+| Logs | Loki (collected via pino + pino-loki transport) |
+| Metrics | Prometheus (each service exposes `GET /metrics`) |
+| Tracing | Tempo (distributed traces via OTel exporter) |
+| Dashboards | Grafana (unified view of logs, metrics, traces) |
+| Error tracking | Sentry (exceptions with stack trace context) |
+
+### Instrumentation rules
+
+- Initialize the OTel SDK in `main.ts` before anything else — it must patch modules at startup
+- Every service exports traces to the OTel Collector; never export directly to Tempo or Jaeger
+- Span names follow the pattern: `[service].[operation]` (e.g. `profile.createUser`)
+- Never log sensitive data — no passwords, tokens, or PII in logs or spans
+- Sentry DSN is an env var (`SENTRY_DSN`) — optional, service starts normally if absent
+
+### Required env vars for observability
+
+```
+OTEL_EXPORTER_OTLP_ENDPOINT   # OTel Collector URL
+SENTRY_DSN                     # optional
+```
+
+### Health check includes observability status
+
+```json
+{
+  "status": "ok",
+  "dependencies": {
+    "postgres": "ok",
+    "rabbitmq": "ok",
+    "otel": "ok"
+  }
+}
+```
 
 ---
 
