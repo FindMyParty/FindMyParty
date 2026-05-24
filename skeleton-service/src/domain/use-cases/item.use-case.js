@@ -2,15 +2,17 @@ import { Item } from "../entities/item.js";
 import { NotFoundError } from "../../utils/errors.js";
 
 export class ItemUseCase {
-  constructor({ itemRepository, eventPublisher }) {
+  constructor({ itemRepository, eventPublisher, metrics }) {
     this.itemRepository = itemRepository;
     this.eventPublisher = eventPublisher;
+    this.metrics = metrics;
   }
 
   async createItem(data) {
     const item = Item.create(data);
     await this.itemRepository.save(item);
     await this.eventPublisher.publish("skeleton.item.created", item.toJSON());
+    this.metrics.recordItemCreated(item.status);
     return item;
   }
 

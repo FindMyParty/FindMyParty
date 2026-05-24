@@ -26,8 +26,7 @@ export default async function metricsRoutes(fastify) {
       });
     }
 
-    const handler = exporter.getMetricsRequestHandler();
     reply.hijack();
-    handler(request.raw, reply.raw);
+    exporter.getMetricsRequestHandler(request.raw, reply.raw);
   });
 }

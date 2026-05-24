@@ -25,6 +25,7 @@ import { createAmqpPublisher } from "./adapters/outbound/messaging/publisher.js"
 import { registerSubscribers } from "./adapters/outbound/messaging/subscriber.js";
 import { ItemUseCase } from "./domain/use-cases/item.use-case.js";
 import { ItemService } from "./application/services/item.service.js";
+import { OtelItemMetrics } from "./adapters/outbound/metrics/otel-item-metrics.js";
 
 async function main() {
   // 3. Connect database and run pending migrations
@@ -42,7 +43,8 @@ async function main() {
   await registerSubscribers(connection);
 
   // Wire dependencies
-  const itemUseCase = new ItemUseCase({ itemRepository, eventPublisher: publisher });
+  const itemMetrics = new OtelItemMetrics();
+  const itemUseCase = new ItemUseCase({ itemRepository, eventPublisher: publisher, metrics: itemMetrics });
   const itemService = new ItemService({ itemUseCase });
 
   // 6. Start HTTP server
