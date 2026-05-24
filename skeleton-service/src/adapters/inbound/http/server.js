@@ -17,8 +17,8 @@ const itemSchema = {
     name: { type: "string", examples: ["Poção de cura"] },
     description: { type: "string", nullable: true, examples: ["Restaura 2d4+2 pontos de vida"] },
     status: { type: "string", enum: ["active", "inactive"] },
-    created_at: { type: "string", format: "date-time" },
-    updated_at: { type: "string", format: "date-time" },
+    createdAt: { type: "string", format: "date-time" },
+    updatedAt: { type: "string", format: "date-time" },
   },
 };
 

@@ -52,9 +52,3 @@ export function getPrometheusExporter() {
   return prometheusExporter;
 }
 
-/**
- * Returns whether the OTel SDK has been initialized.
- */
-export function isTelemetryInitialized() {
-  return sdk !== null;
-}

@@ -1,9 +1,8 @@
 import pino from "pino";
-
-const LOG_LEVEL = process.env.LOG_LEVEL || "info";
+import { env } from "../config/env.js";
 
 export const loggerConfig = {
-  level: LOG_LEVEL,
+  level: env.LOG_LEVEL,
 };
 
 export const logger = pino(loggerConfig);

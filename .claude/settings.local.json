@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"c:\\\\Users\\\\gabri\\\\Codigo\\\\FindMyParty\\\\skeleton-service\\\\src\\\\utils\\\\types.js\")"
+    ]
+  }
+}

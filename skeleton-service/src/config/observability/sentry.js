@@ -22,9 +22,3 @@ export function initSentry({ dsn, environment = "development" }) {
   initialized = true;
 }
 
-/**
- * Returns whether Sentry has been initialized.
- */
-export function isSentryInitialized() {
-  return initialized;
-}

@@ -10,13 +10,3 @@
  * @typedef {Object} IEventPublisher
  * @property {(routingKey: string, payload: object) => Promise<void>} publish
  */
-
-/**
- * Marker class for the outbound event publisher port.
- * Adapters implement this interface.
- */
-export class IEventPublisher {
-  async publish(_routingKey, _payload) {
-    throw new Error("Not implemented");
-  }
-}
