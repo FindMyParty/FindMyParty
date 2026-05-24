@@ -28,6 +28,7 @@ export function initTelemetry({ otlpEndpoint, serviceName = "skeleton-service" }
     instrumentations: [
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-fs": { enabled: false },
+        "@opentelemetry/instrumentation-runtime-node": { enabled: false },
       }),
     ],
   });
