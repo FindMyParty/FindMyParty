@@ -16,7 +16,7 @@ initSentry({
   environment: env.NODE_ENV,
 });
 
-import { logger } from "./utils/logger.js";
+import { logger } from "./shared/logger.js";
 import { buildServer } from "./adapters/inbound/http/server.js";
 import { checkPostgres, closeDatabase } from "./adapters/outbound/db/client.js";
 import { runMigrations } from "./adapters/outbound/db/migrator.js";

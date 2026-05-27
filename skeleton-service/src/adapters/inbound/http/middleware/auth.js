@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { env } from "../../../../config/env.js";
-import { UnauthorizedError } from "../../../../utils/errors.js";
+import { UnauthorizedError } from "../../../../shared/errors.js";
 
 /**
  * Decode and verify an HMAC-SHA256 JWT.

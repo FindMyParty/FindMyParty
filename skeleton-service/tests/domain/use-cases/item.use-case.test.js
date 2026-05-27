@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ItemUseCase } from "../../../src/domain/use-cases/item.use-case.js";
 import { Item, ItemStatus } from "../../../src/domain/entities/item.js";
-import { NotFoundError } from "../../../src/utils/errors.js";
+import { NotFoundError } from "../../../src/shared/errors.js";
 
 function createMockRepository() {
   return {
@@ -19,6 +19,12 @@ function createMockPublisher() {
   };
 }
 
+function createMockMetrics() {
+  return {
+    recordItemCreated: vi.fn(),
+  };
+}
+
 function createItem(overrides = {}) {
   return Item.create({ name: "Test Item", description: "A description", ...overrides });
 }
@@ -27,11 +33,13 @@ describe("ItemUseCase", () => {
   let useCase;
   let itemRepository;
   let eventPublisher;
+  let metrics;
 
   beforeEach(() => {
     itemRepository = createMockRepository();
     eventPublisher = createMockPublisher();
-    useCase = new ItemUseCase({ itemRepository, eventPublisher });
+    metrics = createMockMetrics();
+    useCase = new ItemUseCase({ itemRepository, eventPublisher, metrics });
   });
 
   describe("createItem", () => {
@@ -49,6 +57,7 @@ describe("ItemUseCase", () => {
         "skeleton.item.created",
         result.toJSON(),
       );
+      expect(metrics.recordItemCreated).toHaveBeenCalledWith(result.status);
     });
 
     it("creates an item with default status when not provided", async () => {

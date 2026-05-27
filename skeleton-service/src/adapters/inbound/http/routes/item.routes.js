@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ValidationError } from "../../../../utils/errors.js";
+import { ValidationError } from "../../../../shared/errors.js";
 import { authMiddleware } from "../middleware/auth.js";
 
 const createItemBody = z.object({
@@ -34,15 +34,6 @@ const uuidParam = {
   properties: { id: { type: "string", format: "uuid" } },
 };
 
-/**
- * Item routes — CRUD endpoints for items.
- *
- * Routes delegate to ItemService (application layer) which handles
- * domain orchestration and DTO mapping.
- *
- * @param {import('fastify').FastifyInstance} fastify
- * @param {{ itemService: import('../../../../application/services/item.service.js').ItemService }} options
- */
 export default async function itemRoutes(fastify, options) {
   const { itemService } = options;
 

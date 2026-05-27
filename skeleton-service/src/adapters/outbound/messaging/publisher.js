@@ -1,6 +1,6 @@
 import amqplib from "amqplib";
 import { env } from "../../../config/env.js";
-import { logger } from "../../../utils/logger.js";
+import { logger } from "../../../shared/logger.js";
 
 const EXCHANGE = "skeleton.events";
 

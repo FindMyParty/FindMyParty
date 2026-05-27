@@ -45,11 +45,11 @@ export async function shutdownTelemetry() {
   }
 }
 
-/**
- * Returns the Prometheus exporter instance for serving metrics.
- * @returns {PrometheusExporter | null}
- */
 export function getPrometheusExporter() {
   return prometheusExporter;
+}
+
+export function isTelemetryInitialized() {
+  return sdk !== null;
 }
 

@@ -1,4 +1,4 @@
-import { logger } from "../../../utils/logger.js";
+import { logger } from "../../../shared/logger.js";
 
 /**
  * Register RabbitMQ queue consumers on the given connection.

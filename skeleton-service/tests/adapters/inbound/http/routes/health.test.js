@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("../../../../../src/config/env.js", () => ({
-  env: { JWT_SECRET: "test-secret-key" },
+  env: { JWT_SECRET: "test-secret-key", LOG_LEVEL: "info" },
 }));
 
 const { buildServer } = await import(

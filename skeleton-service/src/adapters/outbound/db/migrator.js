@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { db } from "./client.js";
-import { logger } from "../../../utils/logger.js";
+import { logger } from "../../../shared/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.join(__dirname, "migrations");

@@ -22,3 +22,7 @@ export function initSentry({ dsn, environment = "development" }) {
   initialized = true;
 }
 
+export function isSentryInitialized() {
+  return initialized;
+}
+

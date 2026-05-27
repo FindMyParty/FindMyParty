@@ -45,18 +45,17 @@ export default async function healthRoutes(fastify, options) {
       }),
     );
 
-    for (const result of results) {
+    results.forEach((result, index) => {
       if (result.status === "fulfilled") {
         dependencies[result.value.name] = result.value.status;
         if (result.value.status !== "ok") {
           allHealthy = false;
         }
       } else {
-        const name = entries[results.indexOf(result)][0];
-        dependencies[name] = "error";
+        dependencies[entries[index][0]] = "error";
         allHealthy = false;
       }
-    }
+    });
 
     const statusCode = allHealthy ? 200 : 503;
 
