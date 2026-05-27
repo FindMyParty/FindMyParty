@@ -1,0 +1,292 @@
+# Ralph Progress Log
+Started: Sun Apr 12 18:19:33 -03 2026
+
+## Codebase Patterns
+- Use ES modules (`"type": "module"` in package.json) — all imports use `import/export`
+- Use `.gitkeep` files to preserve empty directories in git
+- OpenTelemetry packages use `^0.214.0` (sdk-node, exporters) and `^0.72.0` (auto-instrumentations)
+- Working directory for bash commands may change — always use absolute paths or `cd` explicitly
+- Import env vars only from `src/config/env.js` — never use `process.env` directly elsewhere
+- Domain entities use zod for validation — zod is a pure library, not infrastructure, so it's allowed in domain layer
+- Entity pattern: `static create()` for new instances, `static fromPersistence()` for reconstruction from DB
+- Use `Object.freeze` for enum-like constants (e.g., `ItemStatus`)
+- Env validation uses `safeParse` + `process.exit(1)` pattern for clear error messages on boot
+- Fastify v5 requires a config object for `logger`, not a pino instance — export `loggerConfig` from `shared/logger.js`
+- Health route uses `dependencyCheckers` map for injectable liveness probes — keeps route decoupled from infra
+- Tests use `server.inject()` for in-process HTTP testing — no need to actually listen on a port
+- Use case unit tests use `vi.fn()` mocks for ports — NOT in-memory adapters (those are for integration tests)
+- Port interfaces use marker classes with `throw new Error("Not implemented")` — JS substitute for abstract interfaces
+- Port file naming: `[entity]-[type].port.js` (e.g., `item-use-case.port.js`, `item-repository.port.js`)
+- Use case file naming: `[entity].use-case.js` — class name is `[Entity]UseCase`
+- Use cases receive dependencies via constructor injection: `{ itemRepository, eventPublisher }`
+- Use cases import `NotFoundError` from shared/errors.js for not-found checks — this is the only shared import allowed
+- In-memory adapters store data as JSON (via `toJSON()`) and reconstruct via `fromPersistence()` — mirrors real DB serialization
+- In-memory adapter naming: `in-memory-[entity].repository.js`
+- In-memory event publisher naming: `in-memory-event.publisher.js` — stores events as `{ routingKey, payload, publishedAt }` array
+- Event publisher exposes `events` getter (returns copy) and `getByRoutingKey(key)` for test assertions
+- Application service naming: `[entity].service.js` — class name is `[Entity]Service`
+- Application services receive use cases via constructor injection: `{ itemUseCase }`
+- Routes receive `itemService` (not `itemUseCase`) — routes never touch domain entities directly
+- `buildServer()` accepts `itemService` option — wires it into route plugins automatically
+- OTel SDK must be initialized before any other imports that need instrumentation — `initTelemetry()` is the entry point
+- PrometheusExporter with `preventServerStart: true` + `reply.hijack()` serves metrics through Fastify without starting a separate server
+- Sentry is optional — `initSentry()` no-ops gracefully when DSN is falsy
+- Observability files live in `src/observability/` (not `src/shared/`) — separate concern from shared utilities
+- Metrics route uses `reply.hijack()` to hand off to the Prometheus exporter's native HTTP handler
+- Boot sequence: OTel init → env validation (on import) → connect DB → connect MQ → wire deps → start server → register shutdown handlers
+- Graceful shutdown order: close HTTP server → flush telemetry → process.exit(0)
+---
+
+## 2026-04-12 19:38 -03 - US-001
+- What was implemented: Full hexagonal directory structure for skeleton-service matching CLAUDE.md layout
+- Files changed: All skeleton-service/src/** directories and placeholder files, package.json, .env.example, Dockerfile
+- **Learnings for future iterations:**
+  - npm install ran from skeleton-service directory — be aware of cwd changes
+  - OTel auto-instrumentations-node uses different versioning (0.72.x) than the other OTel packages (0.214.x)
+  - Windows CRLF warnings are normal, git handles them via autocrlf
+---
+
+## 2026-04-12 - US-002
+- What was implemented: Zod-based environment variable validation in `src/config/env.js`
+- Files changed: `skeleton-service/src/config/env.js`
+- **Learnings for future iterations:**
+  - SENTRY_DSN must accept both empty string `""` and valid URL — use `.url().optional().or(z.literal(""))`
+  - PORT is a string from process.env — use `.transform(Number).pipe(z.number())` to coerce and validate
+  - The env object is frozen with `Object.freeze` to prevent accidental mutation
+  - `process.exit(1)` on validation failure ensures the service never starts with bad config
+---
+
+## 2026-04-12 - US-003
+- What was implemented: Health check endpoint (`GET /health`) with injectable dependency checkers, Fastify server setup with cors/helmet/error handler, shared error classes, pino logger config
+- Files changed:
+  - `skeleton-service/src/shared/errors.js` — AppError, NotFoundError, ValidationError, UnauthorizedError, ConflictError
+  - `skeleton-service/src/shared/logger.js` — pino logger config + instance
+  - `skeleton-service/src/adapters/inbound/http/server.js` — buildServer with cors, helmet, error handler, health route
+  - `skeleton-service/src/adapters/inbound/http/routes/health.js` — GET /health with dependency checker map
+  - `skeleton-service/tests/adapters/inbound/http/routes/health.test.js` — 4 tests covering healthy, degraded, and error scenarios
+- **Learnings for future iterations:**
+  - Fastify v5 does NOT accept a pino instance as `logger` option — it must be a plain config object
+  - `buildServer()` returns an unstarted Fastify instance — tests use `server.inject()`, boot uses `server.listen()`
+  - Health route accepts `dependencyCheckers` via plugin options — each checker is `() => Promise<string>` returning "ok" or other status
+  - `Promise.allSettled` is used so one failing checker doesn't prevent others from reporting
+---
+
+## 2026-04-12 - US-004
+- What was implemented: Item domain entity with zod validation, factory methods (`create`, `fromPersistence`), mutation methods (`update`, `activate`, `deactivate`), and JSON serialization
+- Files changed:
+  - `skeleton-service/src/domain/entities/item.js` — Item class with ItemStatus enum
+  - `skeleton-service/tests/domain/entities/item.test.js` — 15 tests covering creation, persistence reconstruction, updates, status transitions, serialization, and validation errors
+  - Removed `skeleton-service/src/domain/entities/.gitkeep`
+- **Learnings for future iterations:**
+  - `crypto.randomUUID()` is available globally in Node.js — no import needed
+  - Zod `z.nativeEnum()` works with `Object.freeze` objects for enum validation
+  - Entity `update()` validates each field individually so partial updates work correctly
+  - Tests directory mirrors src directory structure: `tests/domain/entities/item.test.js`
+---
+
+## 2026-04-12 - US-005
+- What was implemented: Inbound and outbound port interfaces for hexagonal architecture
+  - `IItemUseCase` (inbound) — defines createItem, getItemById, listItems, updateItem, deleteItem, activateItem, deactivateItem
+  - `IItemRepository` (outbound) — defines save, findById, findAll, update, deleteById
+  - `IEventPublisher` (outbound) — defines publish(routingKey, payload)
+- Files changed:
+  - `skeleton-service/src/domain/ports/inbound/item-use-case.port.js` — inbound use case port
+  - `skeleton-service/src/domain/ports/outbound/item-repository.port.js` — outbound repository port
+  - `skeleton-service/src/domain/ports/outbound/event-publisher.port.js` — outbound event publisher port
+  - Removed `.gitkeep` files from ports directories
+- **Learnings for future iterations:**
+  - Port interfaces use marker classes with methods that throw "Not implemented" — JS has no native interfaces, so this pattern enforces the contract at runtime
+  - JSDoc `@typedef` provides IDE autocompletion even in plain JS without TypeScript
+  - Ports live in domain layer and have zero infrastructure dependencies — they only reference domain entities
+  - Routing key pattern for events: `[service].[entity].[action]` (e.g., `skeleton.item.created`)
+---
+
+## 2026-04-12 - US-006
+- What was implemented: ItemUseCase class implementing all 7 use case methods (createItem, getItemById, listItems, updateItem, deleteItem, activateItem, deactivateItem) with constructor-injected dependencies
+- Files changed:
+  - `skeleton-service/src/domain/use-cases/item.use-case.js` — full use case implementation
+  - Removed `skeleton-service/src/domain/use-cases/.gitkeep`
+- **Learnings for future iterations:**
+  - Use cases depend only on port interfaces (IItemRepository, IEventPublisher) via constructor injection — never on concrete adapters
+  - NotFoundError from shared/errors.js is acceptable in domain use cases — it's a domain concept, not infrastructure
+  - Each mutation method publishes a domain event with routing key `skeleton.item.[action]`
+  - deleteItem verifies existence before deleting and publishes `{ id }` as payload (not full entity)
+  - Use cases do NOT extend the IItemUseCase marker class — they just implement the same method signatures (duck typing)
+- Route file naming: `[entity].routes.js` — registered as Fastify plugin with dependencies passed via options
+- Routes use `zod.safeParse()` + `ValidationError` for request validation — keeps validation in adapter layer
+- `buildServer()` conditionally registers route plugins only when dependencies are provided (e.g., `itemUseCase`)
+- HTTP response convention: `{ data: ... }` for success, 201 for create, 204 for delete
+---
+
+## 2026-04-12 21:36 -03 - US-007
+- What was implemented: Item CRUD HTTP routes as a Fastify plugin with zod request validation
+  - POST /items — create item (201)
+  - GET /items — list items with optional `?status=` filter (200)
+  - GET /items/:id — get item by UUID (200)
+  - PUT /items/:id — update item (200)
+  - DELETE /items/:id — delete item (204)
+  - PATCH /items/:id/activate — activate item (200)
+  - PATCH /items/:id/deactivate — deactivate item (200)
+- Files changed:
+  - `skeleton-service/src/adapters/inbound/http/routes/item.routes.js` — new route plugin
+  - `skeleton-service/src/adapters/inbound/http/server.js` — registers item routes when `itemUseCase` is provided
+- **Learnings for future iterations:**
+  - Routes are registered as Fastify plugins — dependencies (use cases) are passed via the plugin `options` object
+  - Use `zod.safeParse()` in routes to validate request data, then throw `ValidationError` on failure — keeps zod errors user-friendly
+  - `buildServer()` conditionally registers routes only when their dependencies are present — supports incremental wiring
+  - UUID params validated at route level with `z.string().uuid()` to fail fast with 400 instead of hitting the use case
+---
+
+## 2026-04-12 21:38 -03 - US-008
+- What was implemented: In-memory implementation of `IItemRepository` using a `Map` for storage
+  - `save` — stores item JSON, returns reconstructed Item entity
+  - `findById` — returns Item or null
+  - `findAll` — supports optional `status` filter
+  - `update` — overwrites stored data
+  - `deleteById` — removes from store
+  - `clear` — utility for resetting state in tests
+- Files changed:
+  - `skeleton-service/src/adapters/outbound/db/in-memory-item.repository.js` — new file
+- **Learnings for future iterations:**
+  - Store data as plain JSON (via `toJSON()`) and reconstruct via `Item.fromPersistence()` — this mirrors real DB behavior where dates are strings
+  - Date fields need `new Date()` wrapping when reconstructing from stored JSON since `toJSON()` converts to ISO strings
+  - Private `#store` field keeps the Map encapsulated — tests use `clear()` instead of accessing internals
+  - When adding new `Item`/`item` references to skeleton-service, update `scripts/create-service.sh` sed rules to ensure generated services replace them
+- Repository naming: `in-memory-[entity].repository.js` for in-memory adapters
+---
+
+## 2026-04-12 21:39 -03 - US-009
+- What was implemented: In-memory implementation of `IEventPublisher` for development and testing
+  - `publish(routingKey, payload)` — stores event with timestamp in internal array
+  - `events` getter — returns a copy of all published events
+  - `getByRoutingKey(key)` — filters events by routing key for targeted test assertions
+  - `clear()` — resets stored events for test isolation
+- Files changed:
+  - `skeleton-service/src/adapters/outbound/messaging/in-memory-event.publisher.js` — new file
+- **Learnings for future iterations:**
+  - Events stored as `{ routingKey, payload, publishedAt }` — the `publishedAt` timestamp helps verify ordering in tests
+  - The `events` getter returns a shallow copy (`[...#events]`) to prevent external mutation of internal state
+  - `getByRoutingKey()` is a convenience method — avoids repetitive `.filter()` calls in test assertions
+  - The existing `publisher.js` and `subscriber.js` are placeholders for the real RabbitMQ implementation — don't overwrite them
+---
+
+## 2026-04-12 21:41 -03 - US-010
+- What was implemented: ItemService application layer that orchestrates between HTTP routes and domain use cases
+  - `ItemService` class with constructor-injected `itemUseCase` dependency
+  - All 7 methods delegate to use case and map domain entities to DTOs via `toJSON()`
+  - Routes updated to receive `itemService` instead of `itemUseCase`
+  - `buildServer()` updated to accept `itemService` option
+- Files changed:
+  - `skeleton-service/src/application/services/item.service.js` — new file (replaced `.gitkeep`)
+  - `skeleton-service/src/adapters/inbound/http/routes/item.routes.js` — routes now use `itemService`
+  - `skeleton-service/src/adapters/inbound/http/server.js` — accepts `itemService` option
+- **Learnings for future iterations:**
+  - Application service handles DTO mapping (`toJSON()`) — routes receive plain objects, no domain entity knowledge
+  - The dependency flow is: `route → service → use case → port` — service is the orchestration layer
+  - Routes should never call `.toJSON()` on entities — that's the service's responsibility
+  - When changing the wiring (e.g., `itemUseCase` → `itemService`), grep the whole project for references to update
+---
+
+## 2026-04-12 21:44 -03 - US-011
+- What was implemented: Complete observability setup for the skeleton service
+  - OpenTelemetry SDK initialization (`src/observability/telemetry.js`) with OTLP trace exporter and Prometheus metrics exporter
+  - Sentry error tracking initialization (`src/observability/sentry.js`) — optional, no-ops when DSN is absent
+  - Prometheus metrics route (`GET /metrics`) using PrometheusExporter's native handler via `reply.hijack()`
+  - Server updated to register metrics route
+  - Tests for telemetry initialization and Sentry optional behavior
+- Files changed:
+  - `skeleton-service/src/observability/telemetry.js` — new: OTel SDK init, shutdown, Prometheus exporter access
+  - `skeleton-service/src/observability/sentry.js` — new: Sentry init with optional DSN
+  - `skeleton-service/src/adapters/inbound/http/routes/metrics.js` — new: GET /metrics route
+  - `skeleton-service/src/adapters/inbound/http/server.js` — registers metrics route
+  - `skeleton-service/tests/observability/telemetry.test.js` — 3 tests for OTel SDK
+  - `skeleton-service/tests/observability/sentry.test.js` — 2 tests for Sentry optional init
+- **Learnings for future iterations:**
+  - `@opentelemetry/exporter-prometheus` is available as a transitive dep through `@opentelemetry/sdk-node` — no extra install needed
+  - PrometheusExporter with `preventServerStart: true` avoids starting a separate HTTP server for metrics
+  - Use `reply.hijack()` in Fastify to delegate response handling to a native Node.js HTTP handler (like Prometheus exporter)
+  - OTel `@opentelemetry/instrumentation-fs` should be disabled to avoid noisy file system spans
+  - Sentry `tracesSampleRate: 1.0` is fine for dev/skeleton — production services should tune this down
+  - Observability modules live in `src/observability/` — a top-level concern, not inside adapters or shared
+---
+
+## 2026-04-12 21:46 -03 - US-012
+- What was implemented: Complete boot sequence in `main.js` following CLAUDE.md order
+  1. Initialize OpenTelemetry SDK (first, before instrumented modules)
+  2. Initialize Sentry (optional)
+  3. Validate env vars (on import of `env.js`)
+  4. Connect database (in-memory repository for skeleton)
+  5. Connect RabbitMQ (in-memory event publisher for skeleton)
+  6. Register queue subscribers (none for skeleton)
+  7. Wire dependency graph: repository → use case → service → server
+  8. Start HTTP server with health dependency checkers
+  9. Graceful shutdown on SIGTERM/SIGINT (close server, flush telemetry)
+- Files changed:
+  - `skeleton-service/src/main.js` — full boot sequence implementation
+- **Learnings for future iterations:**
+  - OTel `initTelemetry()` must be called before importing modules that need instrumentation (http, fastify) — use top-of-file imports for telemetry, then dynamic or later imports for everything else
+  - `env` is validated on import — no separate `validateEnv()` call needed
+  - Graceful shutdown should close server first, then telemetry last (so final spans can flush)
+  - `main()` wraps boot in async IIFE with `.catch()` calling `process.exit(1)` for unhandled startup errors
+  - Health dependency checkers in skeleton all return "ok" — real services will check actual DB/RabbitMQ connections
+---
+
+## 2026-04-12 21:48 -03 - US-013
+- What was implemented: Unit tests for `ItemUseCase` covering all 7 methods (createItem, getItemById, listItems, updateItem, deleteItem, activateItem, deactivateItem) — 14 tests total
+- Files changed:
+  - `skeleton-service/tests/domain/use-cases/item.use-case.test.js` — new file
+- **Learnings for future iterations:**
+  - Use `vi.fn()` mocks for repository and event publisher — true unit tests should not use in-memory adapters
+  - Each use case method that mutates state should be tested for: success path, NotFoundError path, correct repository call, and correct event published
+  - Mock repository returns domain entities (not plain objects) — the use case operates on Item instances
+  - Test directory mirrors src: `tests/domain/use-cases/item.use-case.test.js`
+---
+
+## 2026-04-12 21:50 -03 - US-014
+- What was implemented: Unit tests for all Item HTTP routes using Fastify `server.inject()` — 20 tests covering all 7 endpoints (POST, GET list, GET by id, PUT, DELETE, PATCH activate, PATCH deactivate) plus error handler
+- Files changed:
+  - `skeleton-service/tests/adapters/inbound/http/routes/item.routes.test.js` — new file (20 tests)
+- **Learnings for future iterations:**
+  - Route tests mock `itemService` (not `itemUseCase`) — routes interact with the application service layer, not domain directly
+  - `buildServer({ itemService })` wires the mock service into routes automatically — no manual plugin registration needed
+  - Test both happy path (correct status code + response body) and validation errors (invalid UUID, missing required fields, invalid enum values)
+  - Test that `AppError` subclasses (NotFoundError) are handled by the error handler with correct status codes
+  - Test that unexpected errors return 500 with `INTERNAL_SERVER_ERROR` code — verifies the generic error handler
+  - No `server.close()` needed in tests using `server.inject()` — Fastify handles cleanup; only needed if `server.listen()` was called
+---
+
+## 2026-04-12 23:29 -03 - US-015
+- What was implemented: Unit tests for `InMemoryItemRepository` — 12 tests covering all 5 repository methods plus `clear()`
+  - `save` — saves and returns reconstructed Item, persists for later retrieval
+  - `findById` — returns Item when exists, null when not
+  - `findAll` — returns all items, empty array when none, filters by status
+  - `update` — updates and returns reconstructed Item, persists changes
+  - `deleteById` — removes item, does not throw for non-existent
+  - `clear` — removes all items
+- Files changed:
+  - `skeleton-service/tests/adapters/outbound/db/in-memory-item.repository.test.js` — new file (12 tests)
+- **Learnings for future iterations:**
+  - In-memory repository tests use real domain entities (not mocks) — these are integration-style tests that verify the adapter works with the domain layer
+  - Test directory mirrors src: `tests/adapters/outbound/db/in-memory-item.repository.test.js`
+  - No need to mock anything — the in-memory repository is itself a test double, so tests verify its correctness directly
+  - Use `beforeEach` with a fresh repository instance for test isolation — no shared state between tests
+---
+
+## 2026-04-13 - US-017
+- What was implemented: Shell script (`scripts/create-service.sh`) that creates a new microservice from the skeleton-service template
+  - Copies skeleton-service excluding node_modules and package-lock.json
+  - Renames all files containing "item" to the new entity name
+  - Replaces all references (class names, variable names, imports, routing keys, JSDoc types, test assertions) via sed
+  - Validates service-name (lowercase alphanumeric + hyphens) and entity-name (lowercase alphanumeric)
+  - Detects duplicate target directory
+  - Runs npm install automatically
+  - Prints next-steps guide
+- Files changed:
+  - `scripts/create-service.sh` — fixed 3 missing sed replacement patterns: `instanceof Item`, `).Item` (JSDoc), and `Item repository/use case/persistence` in comments
+- **Learnings for future iterations:**
+  - The sed replacement order matters — more specific patterns (e.g., `skeleton.item`) must come before generic ones (e.g., `skeleton`) to avoid double replacement
+  - When adding new code patterns to the skeleton that reference "Item" or "item", also add corresponding sed rules to create-service.sh
+  - Test the script by generating a service and running its full test suite — string replacements are fragile and easy to miss
+  - `instanceof Entity` and JSDoc `import('...').Entity` patterns need explicit sed rules — they don't match the `{ Entity }` or `class Entity` patterns
+  - Windows `find` with `-not -path` excludes work for filtering node_modules during copy
+---

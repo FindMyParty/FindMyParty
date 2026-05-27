@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/gabri/Codigo/FindMyParty/skeleton-service/**)",
+      "Bash(node src/main.js)",
+      "Bash(npm ls *)",
+      "Bash(node --env-file=.env src/main.js)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(kill %1)",
+      "Bash(npm install *)",
+      "Bash(curl -s -o /dev/null -w \"GET /docs → HTTP %{http_code}\" http://localhost:3000/docs)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gabri\\\\Codigo\\\\FindMyParty\\\\skeleton-service\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object)",
+      "Bash(New-Item -ItemType Directory -Path \"C:\\\\Users\\\\gabri\\\\Codigo\\\\FindMyParty\\\\skeleton-service\\\\src\\\\adapters\\\\outbound\\\\db\\\\migrations\" -Force)",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"done\")"
+    ]
+  }
+}

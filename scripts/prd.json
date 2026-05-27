@@ -1,0 +1,108 @@
+{
+  "name": "Skeleton Service",
+  "branchName": "feature/skeleton",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Estrutura de diretorios do servico",
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "US-002",
+      "title": "Configuracao e validacao de ambiente",
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "US-003",
+      "title": "Health check endpoint",
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "US-004",
+      "title": "Entidade Item no dominio",
+      "priority": 4,
+      "passes": true
+    },
+    {
+      "id": "US-005",
+      "title": "Ports inbound e outbound",
+      "priority": 5,
+      "passes": true
+    },
+    {
+      "id": "US-006",
+      "title": "Use cases de Item",
+      "priority": 6,
+      "passes": true
+    },
+    {
+      "id": "US-007",
+      "title": "Adapter HTTP (Fastify routes)",
+      "priority": 7,
+      "passes": true
+    },
+    {
+      "id": "US-008",
+      "title": "Adapter outbound — Repository in-memory",
+      "priority": 8,
+      "passes": true
+    },
+    {
+      "id": "US-009",
+      "title": "Adapter outbound — Event publisher in-memory",
+      "priority": 9,
+      "passes": true
+    },
+    {
+      "id": "US-010",
+      "title": "Application service (orquestracao)",
+      "priority": 10,
+      "passes": true
+    },
+    {
+      "id": "US-011",
+      "title": "Observabilidade completa",
+      "priority": 11,
+      "passes": true
+    },
+    {
+      "id": "US-012",
+      "title": "Boot sequence",
+      "priority": 12,
+      "passes": true
+    },
+    {
+      "id": "US-013",
+      "title": "Testes unitarios — Use cases",
+      "priority": 13,
+      "passes": true
+    },
+    {
+      "id": "US-014",
+      "title": "Testes unitarios — Routes (Fastify inject)",
+      "priority": 14,
+      "passes": true
+    },
+    {
+      "id": "US-015",
+      "title": "Testes unitarios — Repository in-memory",
+      "priority": 15,
+      "passes": true
+    },
+    {
+      "id": "US-016",
+      "title": "Auth middleware com logica minima",
+      "priority": 16,
+      "passes": true
+    },
+    {
+      "id": "US-017",
+      "title": "Script para criar novo servico a partir do skeleton",
+      "priority": 17,
+      "passes": true
+    }
+  ]
+}
